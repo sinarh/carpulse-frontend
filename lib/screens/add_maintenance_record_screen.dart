@@ -2,62 +2,75 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../services/api.dart';
 
-class AddVehicleScreen extends StatefulWidget {
-  const AddVehicleScreen({super.key});
+class AddMaintenanceRecordScreen extends StatefulWidget {
+  final int vehicleId;
+  final String vehicleTitle;
+
+  const AddMaintenanceRecordScreen({
+    super.key,
+    required this.vehicleId,
+    required this.vehicleTitle,
+  });
 
   @override
-  State<AddVehicleScreen> createState() => _AddVehicleScreenState();
+  State<AddMaintenanceRecordScreen> createState() =>
+      _AddMaintenanceRecordScreenState();
 }
 
-class _AddVehicleScreenState extends State<AddVehicleScreen> {
-  final makeCtrl = TextEditingController();
-  final modelCtrl = TextEditingController();
-  final yearCtrl = TextEditingController();
+class _AddMaintenanceRecordScreenState
+    extends State<AddMaintenanceRecordScreen> {
+  final serviceTypeCtrl = TextEditingController();
+  final serviceDateCtrl = TextEditingController();
   final mileageCtrl = TextEditingController();
-  final nicknameCtrl = TextEditingController();
-  final purchaseDateCtrl = TextEditingController();
+  final costCtrl = TextEditingController();
   final notesCtrl = TextEditingController();
 
-  String? selectedFuelType;
-  String? selectedTransmission;
-  String? error;
   bool loading = false;
+  String? error;
 
-  final fuelTypes = const [
-    'Gasoline',
-    'Diesel',
-    'Hybrid',
-    'Electric',
-    'Premium',
+  final serviceTypes = const [
+    'Oil Change',
+    'Tire Rotation',
+    'Brake Service',
+    'Battery Replacement',
+    'Air Filter',
+    'Spark Plugs',
+    'Inspection',
     'Other',
   ];
 
-  final transmissions = const [
-    'Automatic',
-    'Manual',
-    'CVT',
-    'DCT',
-    'Other',
-  ];
+  String? selectedServiceType;
 
   Future<void> save() async {
-    final make = makeCtrl.text.trim();
-    final model = modelCtrl.text.trim();
-    final year = int.tryParse(yearCtrl.text.trim());
+    final serviceType = (selectedServiceType ?? serviceTypeCtrl.text).trim();
+    final serviceDate = serviceDateCtrl.text.trim();
     final mileage = int.tryParse(mileageCtrl.text.trim());
-    final nickname = nicknameCtrl.text.trim();
-    final purchaseDate = purchaseDateCtrl.text.trim();
+    final costText = costCtrl.text.trim();
     final notes = notesCtrl.text.trim();
 
-    if (make.isEmpty || model.isEmpty || year == null || mileage == null) {
-      setState(() => error = 'Make, model, year, and mileage are required');
+    if (serviceType.isEmpty || serviceDate.isEmpty || mileage == null) {
+      setState(() {
+        error = 'Service type, service date, and mileage are required';
+      });
       return;
     }
 
-    if (purchaseDate.isNotEmpty &&
-        !RegExp(r'^\d{4}-\d{2}-\d{2}$').hasMatch(purchaseDate)) {
-      setState(() => error = 'Purchase date must be YYYY-MM-DD');
+    if (!RegExp(r'^\d{4}-\d{2}-\d{2}$').hasMatch(serviceDate)) {
+      setState(() {
+        error = 'Service date must be YYYY-MM-DD';
+      });
       return;
+    }
+
+    double? cost;
+    if (costText.isNotEmpty) {
+      cost = double.tryParse(costText);
+      if (cost == null) {
+        setState(() {
+          error = 'Cost must be a number';
+        });
+        return;
+      }
     }
 
     setState(() {
@@ -66,32 +79,33 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
     });
 
     final payload = <String, dynamic>{
-      'make': make,
-      'model': model,
-      'year': year,
+      'service_type': serviceType,
+      'service_date': serviceDate,
       'mileage': mileage,
     };
 
-    if (nickname.isNotEmpty) payload['nickname'] = nickname;
-    if (selectedFuelType != null) payload['fuel_type'] = selectedFuelType;
-    if (selectedTransmission != null) {
-      payload['transmission'] = selectedTransmission;
-    }
-    if (purchaseDate.isNotEmpty) payload['purchase_date'] = purchaseDate;
+    if (cost != null) payload['cost'] = cost;
     if (notes.isNotEmpty) payload['notes'] = notes;
 
-    final res = await Api.post('/vehicle/', payload, auth: true);
+    final res = await Api.post(
+      '/vehicle/${widget.vehicleId}/maintenance-records',
+      payload,
+      auth: true,
+    );
 
     setState(() => loading = false);
 
     if (res.statusCode != 201 && res.statusCode != 200) {
       try {
         final data = jsonDecode(res.body);
-        setState(
-          () => error = data['error']?.toString() ?? 'Failed to add vehicle',
-        );
+        setState(() {
+          error =
+              data['error']?.toString() ?? 'Failed to save maintenance record';
+        });
       } catch (_) {
-        setState(() => error = 'Failed to add vehicle');
+        setState(() {
+          error = 'Failed to save maintenance record';
+        });
       }
       return;
     }
@@ -102,12 +116,10 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
 
   @override
   void dispose() {
-    makeCtrl.dispose();
-    modelCtrl.dispose();
-    yearCtrl.dispose();
+    serviceTypeCtrl.dispose();
+    serviceDateCtrl.dispose();
     mileageCtrl.dispose();
-    nicknameCtrl.dispose();
-    purchaseDateCtrl.dispose();
+    costCtrl.dispose();
     notesCtrl.dispose();
     super.dispose();
   }
@@ -117,7 +129,7 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF3F4F6),
       appBar: AppBar(
-        title: const Text('Add Vehicle'),
+        title: const Text('Maintenance Record'),
         backgroundColor: Colors.white,
         foregroundColor: Colors.black87,
         elevation: 1,
@@ -127,72 +139,63 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
         children: [
           _card(
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                Text(
+                  widget.vehicleTitle,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 6),
                 const Text(
-                  'Vehicle Profile',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                  'Track a completed service or repair for this vehicle.',
+                  style: TextStyle(color: Colors.black54),
                 ),
-                const SizedBox(height: 10),
+                const SizedBox(height: 14),
+                _dropdown(
+                  label: 'Service Type',
+                  value: selectedServiceType,
+                  items: serviceTypes,
+                  icon: Icons.build,
+                  onChanged: (value) {
+                    setState(() => selectedServiceType = value);
+                  },
+                ),
+                const SizedBox(height: 12),
                 _field(
-                  nicknameCtrl,
-                  'Nickname (optional)',
-                  Icons.drive_file_rename_outline,
+                  serviceTypeCtrl,
+                  'Custom Service Type (optional)',
+                  Icons.edit_note,
                 ),
                 const SizedBox(height: 12),
                 _field(
-                  makeCtrl,
-                  'Make',
-                  Icons.directions_car_filled_outlined,
-                ),
-                const SizedBox(height: 12),
-                _field(modelCtrl, 'Model', Icons.badge_outlined),
-                const SizedBox(height: 12),
-                _field(
-                  yearCtrl,
-                  'Year',
-                  Icons.calendar_month,
-                  keyboardType: TextInputType.number,
+                  serviceDateCtrl,
+                  'Service Date (YYYY-MM-DD)',
+                  Icons.event,
                 ),
                 const SizedBox(height: 12),
                 _field(
                   mileageCtrl,
-                  'Current Mileage',
+                  'Mileage at Service',
                   Icons.speed,
                   keyboardType: TextInputType.number,
                 ),
                 const SizedBox(height: 12),
-                _dropdown(
-                  label: 'Fuel Type',
-                  value: selectedFuelType,
-                  items: fuelTypes,
-                  icon: Icons.local_gas_station,
-                  onChanged: (value) {
-                    setState(() => selectedFuelType = value);
-                  },
-                ),
-                const SizedBox(height: 12),
-                _dropdown(
-                  label: 'Transmission',
-                  value: selectedTransmission,
-                  items: transmissions,
-                  icon: Icons.settings,
-                  onChanged: (value) {
-                    setState(() => selectedTransmission = value);
-                  },
-                ),
-                const SizedBox(height: 12),
                 _field(
-                  purchaseDateCtrl,
-                  'Purchase Date (YYYY-MM-DD)',
-                  Icons.event,
+                  costCtrl,
+                  'Cost (optional)',
+                  Icons.attach_money,
+                  keyboardType:
+                      const TextInputType.numberWithOptions(decimal: true),
                 ),
                 const SizedBox(height: 12),
                 TextField(
                   controller: notesCtrl,
                   maxLines: 3,
                   decoration: InputDecoration(
-                    labelText: 'Notes (optional)',
+                    labelText: 'Notes',
                     prefixIcon: const Icon(Icons.notes),
                     filled: true,
                     fillColor: const Color(0xFFF9FAFB),
@@ -227,43 +230,11 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
                         borderRadius: BorderRadius.circular(14),
                       ),
                     ),
-                    child: Text(loading ? 'Saving...' : 'Save Vehicle'),
+                    child: Text(
+                      loading ? 'Saving...' : 'Save Maintenance Record',
+                    ),
                   ),
                 ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 14),
-          _card(
-            child: Row(
-              children: [
-                Container(
-                  width: 46,
-                  height: 46,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF111827),
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  child: const Icon(Icons.bluetooth, color: Colors.white),
-                ),
-                const SizedBox(width: 12),
-                const Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'OBD-II Bluetooth',
-                        style: TextStyle(fontWeight: FontWeight.w700),
-                      ),
-                      SizedBox(height: 4),
-                      Text(
-                        'Coming soon: live telemetry and auto-detected vehicle health data.',
-                        style: TextStyle(color: Colors.black54),
-                      ),
-                    ],
-                  ),
-                ),
-                const Icon(Icons.lock_outline, color: Colors.black45),
               ],
             ),
           ),

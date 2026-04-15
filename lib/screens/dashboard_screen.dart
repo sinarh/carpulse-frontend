@@ -1,11 +1,12 @@
-import "dart:convert";
-import "package:flutter/material.dart";
-import "../services/api.dart";
-import "../widgets/ai_assistant_card.dart";
+import 'dart:convert';
+import 'package:flutter/material.dart';
+import '../services/api.dart';
+import '../widgets/ai_assistant_card.dart';
 
 class DashboardScreen extends StatefulWidget {
   final int vehicleId;
-  final String vehicleTitle; // e.g. "2001 Volkswagen Jetta"
+  final String vehicleTitle;
+
   const DashboardScreen({
     super.key,
     required this.vehicleId,
@@ -17,38 +18,53 @@ class DashboardScreen extends StatefulWidget {
 }
 
 class _DashboardScreenState extends State<DashboardScreen> {
-  Map<String, dynamic>? latest;
+  Map<String, dynamic>? latestSnapshot;
   String? error;
   bool loading = true;
 
-  Future<void> loadLatest() async {
+  Future<void> loadLatestSnapshot() async {
     setState(() {
       loading = true;
       error = null;
     });
 
-    // Your backend path is /vehicle/<id>/latest
-    final res = await Api.get("/vehicle/${widget.vehicleId}/latest", auth: true);
+    final res = await Api.get(
+      '/vehicle/${widget.vehicleId}/health-snapshots',
+      auth: true,
+    );
 
     if (res.statusCode != 200) {
       setState(() {
         loading = false;
-        error = "Failed to load latest log";
+        error = 'Failed to load vehicle health data';
       });
       return;
     }
 
-    final data = jsonDecode(res.body);
-    setState(() {
-      loading = false;
-      latest = (data is Map<String, dynamic>) ? data : null;
-    });
+    try {
+      final data = jsonDecode(res.body);
+      Map<String, dynamic>? latest;
+
+      if (data is List && data.isNotEmpty) {
+        latest = Map<String, dynamic>.from(data.first);
+      }
+
+      setState(() {
+        latestSnapshot = latest;
+        loading = false;
+      });
+    } catch (_) {
+      setState(() {
+        loading = false;
+        error = 'Invalid dashboard data received';
+      });
+    }
   }
 
   @override
   void initState() {
     super.initState();
-    loadLatest();
+    loadLatestSnapshot();
   }
 
   @override
@@ -62,9 +78,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
         titleSpacing: 0,
         title: Row(
           children: [
-            // LOGO PLACEHOLDER:
-            // Put your image at assets/logo.png and it will render here.
-            // If you don’t have it yet, it’ll show a broken image icon.
             Container(
               width: 40,
               height: 40,
@@ -76,9 +89,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(10),
                 child: Image.asset(
-                  "assets/logo.png",
+                  'assets/logo.png',
                   fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => const Icon(Icons.directions_car, color: Colors.white),
+                  errorBuilder: (_, __, ___) =>
+                      const Icon(Icons.directions_car, color: Colors.white),
                 ),
               ),
             ),
@@ -86,7 +100,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text("CarPulse", style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+                  const Text(
+                    'CarPulse',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+                  ),
                   Text(
                     widget.vehicleTitle,
                     style: const TextStyle(fontSize: 12, color: Colors.black54),
@@ -98,72 +115,106 @@ class _DashboardScreenState extends State<DashboardScreen> {
             IconButton(
               onPressed: () {},
               icon: const Icon(Icons.notifications_none),
-              tooltip: "Notifications",
+              tooltip: 'Notifications',
             ),
             IconButton(
-              onPressed: () => Navigator.pushNamed(context, "/settings"),
+              onPressed: () => Navigator.pushNamed(context, '/settings'),
               icon: const Icon(Icons.settings_outlined),
-              tooltip: "Settings",
+              tooltip: 'Settings',
             ),
           ],
         ),
       ),
       body: RefreshIndicator(
-        onRefresh: loadLatest,
+        onRefresh: loadLatestSnapshot,
         child: ListView(
           padding: const EdgeInsets.all(16),
           children: [
             _carHealthCard(),
             const SizedBox(height: 16),
             Row(
-            children: [
-              const Expanded(
-                child: Text("Live Data", style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
-              ),
-              TextButton.icon(
-                onPressed: () async {
-                  final changed = await Navigator.pushNamed(
-                    context,
-                    "/add-log",
-                    arguments: {"vehicleId": widget.vehicleId},
-                  );
-                  if (changed == true) {
-                    loadLatest(); // refresh latest log
-                  }
-                },
-                icon: const Icon(Icons.add),
-                label: const Text("Add Log"),
-              )
-            ],
-          ),
-
+              children: [
+                const Expanded(
+                  child: Text(
+                    'Latest Health Snapshot',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+                  ),
+                ),
+                TextButton.icon(
+                  onPressed: () async {
+                    final changed = await Navigator.pushNamed(
+                      context,
+                      '/add-log',
+                      arguments: {
+                        'vehicleId': widget.vehicleId,
+                        'vehicleTitle': widget.vehicleTitle,
+                      },
+                    );
+                    if (changed == true) {
+                      loadLatestSnapshot();
+                    }
+                  },
+                  icon: const Icon(Icons.add),
+                  label: const Text('Add Snapshot'),
+                ),
+              ],
+            ),
             const SizedBox(height: 10),
             _liveDataGrid(),
             const SizedBox(height: 20),
-            const Text("Quick Access", style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600)),
+            const Text(
+              'Quick Access',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
+            ),
             const SizedBox(height: 10),
             _moduleGrid(context),
             const SizedBox(height: 20),
             AIAssistantCard(vehicleId: widget.vehicleId),
           ],
-          
         ),
       ),
     );
   }
 
   Widget _carHealthCard() {
-    // Simple placeholder logic. Later we can compute “status” from logs.
-    final msg = (latest == null || latest?["message"] == "no logs yet")
-        ? "No telemetry yet. Add a log to see dashboard status."
-        : "Latest log received. System looks stable (demo placeholder).";
+    final hasSnapshot = latestSnapshot != null;
+
+    String msg;
+    Color statusColor;
+    IconData statusIcon;
+
+    if (!hasSnapshot) {
+      msg = 'No health snapshot yet. Add one to see vehicle condition.';
+      statusColor = const Color(0xFF6B7280);
+      statusIcon = Icons.info_outline;
+    } else if (latestSnapshot?['check_engine_light'] == true) {
+      msg = 'Check engine light is marked on. Vehicle may need attention.';
+      statusColor = const Color(0xFFF59E0B);
+      statusIcon = Icons.warning_amber_rounded;
+    } else if ((latestSnapshot?['battery_status'] == 'Needs Service') ||
+        (latestSnapshot?['tire_status'] == 'Needs Service') ||
+        (latestSnapshot?['brake_status'] == 'Needs Service')) {
+      msg = 'One or more systems may need service soon.';
+      statusColor = const Color(0xFFF59E0B);
+      statusIcon = Icons.build_circle_outlined;
+    } else {
+      msg = 'Latest manual health snapshot looks stable.';
+      statusColor = const Color(0xFF10B981);
+      statusIcon = Icons.check_circle_outline;
+    }
 
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        boxShadow: const [BoxShadow(blurRadius: 10, color: Color(0x11000000), offset: Offset(0, 4))],
+        boxShadow: const [
+          BoxShadow(
+            blurRadius: 10,
+            color: Color(0x11000000),
+            offset: Offset(0, 4),
+          ),
+        ],
       ),
       child: Row(
         children: [
@@ -171,17 +222,20 @@ class _DashboardScreenState extends State<DashboardScreen> {
             width: 44,
             height: 44,
             decoration: BoxDecoration(
-              color: const Color(0xFF10B981),
+              color: statusColor,
               borderRadius: BorderRadius.circular(12),
             ),
-            child: const Icon(Icons.check_circle_outline, color: Colors.white),
+            child: Icon(statusIcon, color: Colors.white),
           ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text("Car Health", style: TextStyle(fontWeight: FontWeight.w600)),
+                const Text(
+                  'Car Health',
+                  style: TextStyle(fontWeight: FontWeight.w600),
+                ),
                 const SizedBox(height: 4),
                 Text(msg, style: const TextStyle(color: Colors.black54)),
               ],
@@ -193,9 +247,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _liveDataGrid() {
-    final fuel = latest?["fuel_level"];
-    final temp = latest?["engine_temp"];
-    final mileage = latest?["mileage"];
+    final fuel = latestSnapshot?['fuel_level'];
+    final temp = latestSnapshot?['engine_temp'];
+    final mileage = latestSnapshot?['mileage'];
+    final battery = latestSnapshot?['battery_status'];
 
     return GridView.count(
       crossAxisCount: 2,
@@ -204,10 +259,30 @@ class _DashboardScreenState extends State<DashboardScreen> {
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       children: [
-        _liveTile(icon: Icons.local_gas_station, label: "Fuel Level", value: fuel?.toString() ?? "--", unit: "%"),
-        _liveTile(icon: Icons.thermostat, label: "Engine Temp", value: temp?.toString() ?? "--", unit: "°C"),
-        _liveTile(icon: Icons.speed, label: "Mileage", value: mileage?.toString() ?? "--", unit: "km"),
-        _liveTile(icon: Icons.battery_full, label: "Battery", value: "--", unit: "%"),
+        _liveTile(
+          icon: Icons.local_gas_station,
+          label: 'Fuel Level',
+          value: fuel?.toString() ?? '--',
+          unit: fuel != null ? '%' : '',
+        ),
+        _liveTile(
+          icon: Icons.thermostat,
+          label: 'Engine Temp',
+          value: temp?.toString() ?? '--',
+          unit: temp != null ? '°C' : '',
+        ),
+        _liveTile(
+          icon: Icons.speed,
+          label: 'Mileage',
+          value: mileage?.toString() ?? '--',
+          unit: mileage != null ? 'km' : '',
+        ),
+        _liveTile(
+          icon: Icons.battery_full,
+          label: 'Battery',
+          value: battery?.toString() ?? '--',
+          unit: '',
+        ),
       ],
     );
   }
@@ -223,21 +298,41 @@ class _DashboardScreenState extends State<DashboardScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        boxShadow: const [BoxShadow(blurRadius: 10, color: Color(0x11000000), offset: Offset(0, 4))],
+        boxShadow: const [
+          BoxShadow(
+            blurRadius: 10,
+            color: Color(0x11000000),
+            offset: Offset(0, 4),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Icon(icon, size: 22, color: Colors.black54),
           const Spacer(),
-          Text(label, style: const TextStyle(color: Colors.black54, fontSize: 12)),
+          Text(
+            label,
+            style: const TextStyle(color: Colors.black54, fontSize: 12),
+          ),
           const SizedBox(height: 4),
           Row(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Text(value, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700)),
-              const SizedBox(width: 4),
-              Text(unit, style: const TextStyle(color: Colors.black54)),
+              Expanded(
+                child: Text(
+                  value,
+                  style: const TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w700,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              if (unit.isNotEmpty) ...[
+                const SizedBox(width: 4),
+                Text(unit, style: const TextStyle(color: Colors.black54)),
+              ],
             ],
           ),
         ],
@@ -247,12 +342,36 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Widget _moduleGrid(BuildContext context) {
     final items = <_ModuleItem>[
-      _ModuleItem(Icons.calendar_month, "Maintenance Schedule", "Upcoming and overdue tasks"),
-      _ModuleItem(Icons.receipt_long, "Service History", "Record of services and repairs"),
-      _ModuleItem(Icons.build, "Diagnostic Tools", "Codes and system checks"),
-      _ModuleItem(Icons.warning_amber, "Active Alerts", "Current vehicle alerts"),
-      _ModuleItem(Icons.trending_up, "Performance Stats", "Fuel economy + patterns"),
-      _ModuleItem(Icons.map_outlined, "Trip History", "Past trips and locations"),
+      _ModuleItem(
+        Icons.calendar_month,
+        'Maintenance Schedule',
+        'Upcoming and overdue tasks',
+      ),
+      _ModuleItem(
+        Icons.receipt_long,
+        'Service History',
+        'Record of services and repairs',
+      ),
+      _ModuleItem(
+        Icons.build,
+        'Diagnostic Tools',
+        'Codes and system checks',
+      ),
+      _ModuleItem(
+        Icons.warning_amber,
+        'Active Alerts',
+        'Current vehicle alerts',
+      ),
+      _ModuleItem(
+        Icons.trending_up,
+        'Performance Stats',
+        'Fuel economy + patterns',
+      ),
+      _ModuleItem(
+        Icons.map_outlined,
+        'Trip History',
+        'Past trips and locations',
+      ),
     ];
 
     return GridView.builder(
@@ -268,13 +387,61 @@ class _DashboardScreenState extends State<DashboardScreen> {
         final m = items[i];
         return InkWell(
           borderRadius: BorderRadius.circular(16),
-          onTap: () {}, // placeholder
+          onTap: () async {
+            if (m.title == 'Service History') {
+            await Navigator.pushNamed(
+              context,
+              '/maintenance-history',
+              arguments: {
+                'vehicleId': widget.vehicleId,
+                'vehicleTitle': widget.vehicleTitle,
+              },
+            );
+            return;
+          }
+          if (m.title == 'Maintenance Schedule') {
+            final changed = await Navigator.pushNamed(
+              context,
+              '/add-maintenance',
+              arguments: {
+                'vehicleId': widget.vehicleId,
+                'vehicleTitle': widget.vehicleTitle,
+              },
+            );
+            if (changed == true) {
+              loadLatestSnapshot();
+            }
+            return;
+          }
+
+            if (m.title == 'Diagnostic Tools' ||
+                m.title == 'Active Alerts') {
+              final changed = await Navigator.pushNamed(
+                context,
+                '/add-log',
+                arguments: {
+                  'vehicleId': widget.vehicleId,
+                  'vehicleTitle': widget.vehicleTitle,
+                },
+              );
+              if (changed == true) {
+                loadLatestSnapshot();
+              }
+              return;
+            }
+          },
           child: Container(
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(16),
-              boxShadow: const [BoxShadow(blurRadius: 10, color: Color(0x11000000), offset: Offset(0, 4))],
+              boxShadow: const [
+                BoxShadow(
+                  blurRadius: 10,
+                  color: Color(0x11000000),
+                  offset: Offset(0, 4),
+                ),
+              ],
             ),
             child: Row(
               children: [
@@ -293,9 +460,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Text(m.title, style: const TextStyle(fontWeight: FontWeight.w600)),
+                      Text(
+                        m.title,
+                        style: const TextStyle(fontWeight: FontWeight.w600),
+                      ),
                       const SizedBox(height: 4),
-                      Text(m.desc, style: const TextStyle(color: Colors.black54), maxLines: 1, overflow: TextOverflow.ellipsis),
+                      Text(
+                        m.desc,
+                        style: const TextStyle(color: Colors.black54),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ],
                   ),
                 ),
@@ -307,12 +482,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
       },
     );
   }
-
 }
 
 class _ModuleItem {
   final IconData icon;
   final String title;
   final String desc;
+
   _ModuleItem(this.icon, this.title, this.desc);
 }
