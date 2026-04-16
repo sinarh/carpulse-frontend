@@ -55,6 +55,45 @@ class _MaintenanceHistoryScreenState extends State<MaintenanceHistoryScreen> {
     }
   }
 
+  Future<void> deleteRecord(int recordId) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Record'),
+        content: const Text(
+          'Are you sure you want to delete this maintenance record?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    final res = await Api.delete(
+      '/vehicle/${widget.vehicleId}/maintenance-records/$recordId',
+      auth: true,
+    );
+
+    if (res.statusCode == 200) {
+      loadRecords();
+      return;
+    }
+
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Failed to delete maintenance record')),
+    );
+  }
+
   @override
   void initState() {
     super.initState();
@@ -107,6 +146,7 @@ class _MaintenanceHistoryScreenState extends State<MaintenanceHistoryScreen> {
       ),
       floatingActionButton: FloatingActionButton.extended(
         backgroundColor: const Color(0xFF5B5CF6),
+        foregroundColor: const Color(0xFFE5E7EB),
         onPressed: () async {
           final changed = await Navigator.pushNamed(
             context,
@@ -190,6 +230,7 @@ class _MaintenanceHistoryScreenState extends State<MaintenanceHistoryScreen> {
   }
 
   Widget _recordCard(Map<String, dynamic> record) {
+    final id = record['id'] as int;
     final serviceType = record['service_type']?.toString() ?? 'Unknown Service';
     final serviceDate = record['service_date']?.toString() ?? '--';
     final mileage = record['mileage']?.toString() ?? '--';
@@ -233,6 +274,11 @@ class _MaintenanceHistoryScreenState extends State<MaintenanceHistoryScreen> {
                     fontWeight: FontWeight.w700,
                   ),
                 ),
+              ),
+              IconButton(
+                onPressed: () => deleteRecord(id),
+                icon: const Icon(Icons.delete_outline),
+                tooltip: 'Delete Record',
               ),
             ],
           ),

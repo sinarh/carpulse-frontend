@@ -7,8 +7,10 @@ import 'screens/add_vehicle_screen.dart';
 import 'screens/dashboard_screen.dart';
 import 'screens/add_log_screen.dart';
 import 'screens/add_maintenance_record_screen.dart';
+import 'screens/edit_vehicle_screen.dart';
 import 'screens/maintenance_history_screen.dart';
 import 'screens/health_snapshot_history_screen.dart';
+import 'screens/vehicle_profile_screen.dart';
 import 'screens/settings_screen.dart';
 
 void main() {
@@ -67,6 +69,21 @@ class CarPulseApp extends StatelessWidget {
             vehicleTitle: title,
           );
         },
+        '/edit-vehicle': (context) {
+          final args = ModalRoute.of(context)?.settings.arguments as Map?;
+          final rawId = args?['vehicleId'];
+          final id = rawId is num ? rawId.toInt() : null;
+
+          if (id == null) {
+            return const Scaffold(
+              body: Center(
+                child: Text('Edit Vehicle error: vehicleId missing'),
+              ),
+            );
+          }
+
+          return EditVehicleScreen(vehicleId: id);
+        },
         '/maintenance-history': (context) {
           final args = ModalRoute.of(context)?.settings.arguments as Map?;
           final rawId = args?['vehicleId'];
@@ -104,6 +121,21 @@ class CarPulseApp extends StatelessWidget {
             vehicleId: id,
             vehicleTitle: title,
           );
+        },
+        '/vehicle-profile': (context) {
+          final args = ModalRoute.of(context)?.settings.arguments as Map?;
+          final rawId = args?['vehicleId'];
+          final id = rawId is num ? rawId.toInt() : null;
+
+          if (id == null) {
+            return const Scaffold(
+              body: Center(
+                child: Text('Vehicle Profile error: vehicleId missing'),
+              ),
+            );
+          }
+
+          return VehicleProfileScreen(vehicleId: id);
         },
         '/dashboard': (context) {
           final args = ModalRoute.of(context)?.settings.arguments as Map?;

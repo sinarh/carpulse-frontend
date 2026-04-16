@@ -87,6 +87,7 @@ class _VehiclesScreenState extends State<VehiclesScreen> {
       ),
       floatingActionButton: FloatingActionButton.extended(
         backgroundColor: const Color(0xFF5B5CF6),
+        foregroundColor: const Color(0xFFE5E7EB),
         onPressed: () async {
           final changed = await Navigator.pushNamed(context, '/add-vehicle');
           if (changed == true) {
@@ -132,8 +133,8 @@ class _VehiclesScreenState extends State<VehiclesScreen> {
   Widget _vehicleCard(Vehicle v) {
     return InkWell(
       borderRadius: BorderRadius.circular(18),
-      onTap: () {
-        Navigator.pushNamed(
+      onTap: () async {
+        await Navigator.pushNamed(
           context,
           '/dashboard',
           arguments: {

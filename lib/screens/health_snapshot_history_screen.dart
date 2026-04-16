@@ -56,6 +56,45 @@ class _HealthSnapshotHistoryScreenState
     }
   }
 
+  Future<void> deleteSnapshot(int snapshotId) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Snapshot'),
+        content: const Text(
+          'Are you sure you want to delete this health snapshot?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    final res = await Api.delete(
+      '/vehicle/${widget.vehicleId}/health-snapshots/$snapshotId',
+      auth: true,
+    );
+
+    if (res.statusCode == 200) {
+      loadSnapshots();
+      return;
+    }
+
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Failed to delete health snapshot')),
+    );
+  }
+
   @override
   void initState() {
     super.initState();
@@ -108,6 +147,7 @@ class _HealthSnapshotHistoryScreenState
       ),
       floatingActionButton: FloatingActionButton.extended(
         backgroundColor: const Color(0xFF5B5CF6),
+        foregroundColor: const Color(0xFFE5E7EB),
         onPressed: () async {
           final changed = await Navigator.pushNamed(
             context,
@@ -191,6 +231,7 @@ class _HealthSnapshotHistoryScreenState
   }
 
   Widget _snapshotCard(Map<String, dynamic> snapshot) {
+    final id = snapshot['id'] as int;
     final mileage = snapshot['mileage']?.toString() ?? '--';
     final fuelLevel = snapshot['fuel_level']?.toString();
     final engineTemp = snapshot['engine_temp']?.toString();
@@ -241,6 +282,11 @@ class _HealthSnapshotHistoryScreenState
                     fontWeight: FontWeight.w700,
                   ),
                 ),
+              ),
+              IconButton(
+                onPressed: () => deleteSnapshot(id),
+                icon: const Icon(Icons.delete_outline),
+                tooltip: 'Delete Snapshot',
               ),
             ],
           ),

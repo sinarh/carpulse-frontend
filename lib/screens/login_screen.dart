@@ -87,7 +87,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   const SizedBox(height: 6),
                   const Text(
                     "Sign in to monitor your vehicle health",
-                    style: TextStyle(color: Colors.black54),
+                    style: TextStyle(color: Color.fromARGB(255, 0, 0, 0)),
                   ),
                   const SizedBox(height: 28),
 
@@ -133,6 +133,7 @@ class _LoginScreenState extends State<LoginScreen> {
                             onPressed: loading ? null : login,
                             style: ElevatedButton.styleFrom(
                               backgroundColor: const Color(0xFF5B5CF6),
+                              foregroundColor: const Color(0xFFE5E7EB),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(14),
                               ),

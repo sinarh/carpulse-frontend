@@ -2,14 +2,19 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../services/api.dart';
 
-class AddVehicleScreen extends StatefulWidget {
-  const AddVehicleScreen({super.key});
+class EditVehicleScreen extends StatefulWidget {
+  final int vehicleId;
+
+  const EditVehicleScreen({
+    super.key,
+    required this.vehicleId,
+  });
 
   @override
-  State<AddVehicleScreen> createState() => _AddVehicleScreenState();
+  State<EditVehicleScreen> createState() => _EditVehicleScreenState();
 }
 
-class _AddVehicleScreenState extends State<AddVehicleScreen> {
+class _EditVehicleScreenState extends State<EditVehicleScreen> {
   final makeCtrl = TextEditingController();
   final modelCtrl = TextEditingController();
   final yearCtrl = TextEditingController();
@@ -20,8 +25,10 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
 
   String? selectedFuelType;
   String? selectedTransmission;
+
+  bool loading = true;
+  bool saving = false;
   String? error;
-  bool loading = false;
 
   final fuelTypes = const [
     'Gasoline',
@@ -39,6 +46,47 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
     'DCT',
     'Other',
   ];
+
+  Future<void> loadVehicle() async {
+    setState(() {
+      loading = true;
+      error = null;
+    });
+
+    final res = await Api.get('/vehicle/${widget.vehicleId}', auth: true);
+
+    if (res.statusCode != 200) {
+      setState(() {
+        loading = false;
+        error = 'Failed to load vehicle details';
+      });
+      return;
+    }
+
+    try {
+      final data = jsonDecode(res.body) as Map<String, dynamic>;
+
+      nicknameCtrl.text = data['nickname']?.toString() ?? '';
+      makeCtrl.text = data['make']?.toString() ?? '';
+      modelCtrl.text = data['model']?.toString() ?? '';
+      yearCtrl.text = data['year']?.toString() ?? '';
+      mileageCtrl.text = data['mileage']?.toString() ?? '';
+      purchaseDateCtrl.text = data['purchase_date']?.toString() ?? '';
+      notesCtrl.text = data['notes']?.toString() ?? '';
+
+      selectedFuelType = data['fuel_type']?.toString();
+      selectedTransmission = data['transmission']?.toString();
+
+      setState(() {
+        loading = false;
+      });
+    } catch (_) {
+      setState(() {
+        loading = false;
+        error = 'Invalid vehicle data received';
+      });
+    }
+  }
 
   Future<void> save() async {
     final make = makeCtrl.text.trim();
@@ -61,7 +109,7 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
     }
 
     setState(() {
-      loading = true;
+      saving = true;
       error = null;
     });
 
@@ -70,34 +118,41 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
       'model': model,
       'year': year,
       'mileage': mileage,
+      'nickname': nickname.isEmpty ? null : nickname,
+      'fuel_type': selectedFuelType,
+      'transmission': selectedTransmission,
+      'purchase_date': purchaseDate.isEmpty ? null : purchaseDate,
+      'notes': notes.isEmpty ? null : notes,
     };
 
-    if (nickname.isNotEmpty) payload['nickname'] = nickname;
-    if (selectedFuelType != null) payload['fuel_type'] = selectedFuelType;
-    if (selectedTransmission != null) {
-      payload['transmission'] = selectedTransmission;
-    }
-    if (purchaseDate.isNotEmpty) payload['purchase_date'] = purchaseDate;
-    if (notes.isNotEmpty) payload['notes'] = notes;
+    final res = await Api.put(
+      '/vehicle/${widget.vehicleId}',
+      payload,
+      auth: true,
+    );
 
-    final res = await Api.post('/vehicle/', payload, auth: true);
+    setState(() => saving = false);
 
-    setState(() => loading = false);
-
-    if (res.statusCode != 201 && res.statusCode != 200) {
+    if (res.statusCode != 200) {
       try {
         final data = jsonDecode(res.body);
         setState(
-          () => error = data['error']?.toString() ?? 'Failed to add vehicle',
+          () => error = data['error']?.toString() ?? 'Failed to update vehicle',
         );
       } catch (_) {
-        setState(() => error = 'Failed to add vehicle');
+        setState(() => error = 'Failed to update vehicle');
       }
       return;
     }
 
     if (!mounted) return;
     Navigator.pop(context, true);
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    loadVehicle();
   }
 
   @override
@@ -114,10 +169,17 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (loading) {
+      return const Scaffold(
+        backgroundColor: Color(0xFFF3F4F6),
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
     return Scaffold(
       backgroundColor: const Color(0xFFF3F4F6),
       appBar: AppBar(
-        title: const Text('Add Vehicle'),
+        title: const Text('Edit Vehicle'),
         backgroundColor: Colors.white,
         foregroundColor: Colors.black87,
         elevation: 1,
@@ -220,7 +282,7 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
                 SizedBox(
                   height: 50,
                   child: ElevatedButton(
-                    onPressed: loading ? null : save,
+                    onPressed: saving ? null : save,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF5B5CF6),
                       foregroundColor: const Color(0xFFE5E7EB),
@@ -228,43 +290,9 @@ class _AddVehicleScreenState extends State<AddVehicleScreen> {
                         borderRadius: BorderRadius.circular(14),
                       ),
                     ),
-                    child: Text(loading ? 'Saving...' : 'Save Vehicle'),
+                    child: Text(saving ? 'Saving...' : 'Save Changes'),
                   ),
                 ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 14),
-          _card(
-            child: Row(
-              children: [
-                Container(
-                  width: 46,
-                  height: 46,
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF111827),
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  child: const Icon(Icons.bluetooth, color: Colors.white),
-                ),
-                const SizedBox(width: 12),
-                const Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'OBD-II Bluetooth',
-                        style: TextStyle(fontWeight: FontWeight.w700),
-                      ),
-                      SizedBox(height: 4),
-                      Text(
-                        'Coming soon: live telemetry and auto-detected vehicle health data.',
-                        style: TextStyle(color: Colors.black54),
-                      ),
-                    ],
-                  ),
-                ),
-                const Icon(Icons.lock_outline, color: Colors.black45),
               ],
             ),
           ),

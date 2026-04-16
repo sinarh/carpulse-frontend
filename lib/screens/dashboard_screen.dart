@@ -311,6 +311,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget _moduleGrid(BuildContext context) {
     final items = <_ModuleItem>[
       _ModuleItem(
+        Icons.person_outline,
+        'Vehicle Profile',
+        'View fuel type, notes, and purchase info',
+      ),
+      _ModuleItem(
         Icons.calendar_month,
         'Maintenance Schedule',
         'Add a completed maintenance record',
@@ -335,11 +340,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
         'Performance Stats',
         'Coming soon',
       ),
-      _ModuleItem(
-        Icons.map_outlined,
-        'Trip History',
-        'Coming soon',
-      ),
     ];
 
     return GridView.builder(
@@ -356,6 +356,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
         return InkWell(
           borderRadius: BorderRadius.circular(16),
           onTap: () async {
+            if (m.title == 'Vehicle Profile') {
+              await Navigator.pushNamed(
+                context,
+                '/vehicle-profile',
+                arguments: {
+                  'vehicleId': widget.vehicleId,
+                },
+              );
+              return;
+            }
+
             if (m.title == 'Service History') {
               await Navigator.pushNamed(
                 context,

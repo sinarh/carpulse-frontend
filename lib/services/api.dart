@@ -45,4 +45,28 @@ class Api {
   await _storage.delete(key: "access_token");
 }
 
+  static Future put(String path, Map body, {bool auth = false}) async {
+    final headers = {
+      "Content-Type": "application/json",
+    };
+
+    if (auth) {
+      final token = await getToken();
+      if (token != null) headers["Authorization"] = "Bearer $token";
+    }
+
+    return http.put(_url(path), headers: headers, body: jsonEncode(body));
+}
+
+  static Future delete(String path, {bool auth = false}) async {
+    final headers = <String, String>{};
+
+    if (auth) {
+      final token = await getToken();
+      if (token != null) headers['Authorization'] = 'Bearer $token';
+    }
+
+    return http.delete(_url(path), headers: headers);
+  }
+
 }

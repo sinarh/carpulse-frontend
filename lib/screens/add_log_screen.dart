@@ -226,6 +226,7 @@ class _AddLogScreenState extends State<AddLogScreen> {
                     onPressed: loading ? null : save,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF5B5CF6),
+                      foregroundColor: const Color(0xFFE5E7EB),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(14),
                       ),
