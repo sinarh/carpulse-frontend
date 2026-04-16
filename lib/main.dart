@@ -7,8 +7,9 @@ import 'screens/add_vehicle_screen.dart';
 import 'screens/dashboard_screen.dart';
 import 'screens/add_log_screen.dart';
 import 'screens/add_maintenance_record_screen.dart';
-import 'screens/settings_screen.dart';
 import 'screens/maintenance_history_screen.dart';
+import 'screens/health_snapshot_history_screen.dart';
+import 'screens/settings_screen.dart';
 
 void main() {
   runApp(const CarPulseApp());
@@ -66,7 +67,6 @@ class CarPulseApp extends StatelessWidget {
             vehicleTitle: title,
           );
         },
-
         '/maintenance-history': (context) {
           final args = ModalRoute.of(context)?.settings.arguments as Map?;
           final rawId = args?['vehicleId'];
@@ -86,7 +86,25 @@ class CarPulseApp extends StatelessWidget {
             vehicleTitle: title,
           );
         },
-        
+        '/health-history': (context) {
+          final args = ModalRoute.of(context)?.settings.arguments as Map?;
+          final rawId = args?['vehicleId'];
+          final id = rawId is num ? rawId.toInt() : null;
+          final title = (args?['vehicleTitle'] ?? 'Vehicle').toString();
+
+          if (id == null) {
+            return const Scaffold(
+              body: Center(
+                child: Text('Health History error: vehicleId missing'),
+              ),
+            );
+          }
+
+          return HealthSnapshotHistoryScreen(
+            vehicleId: id,
+            vehicleTitle: title,
+          );
+        },
         '/dashboard': (context) {
           final args = ModalRoute.of(context)?.settings.arguments as Map?;
           final rawId = args?['vehicleId'];
